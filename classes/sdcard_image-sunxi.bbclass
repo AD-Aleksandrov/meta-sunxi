@@ -70,20 +70,26 @@ IMAGE_CMD_sunxi-sdimg () {
 	if [ ${SOC_FAMILY} = "sun50i" ]; then
 		mkdir -p ${DEPLOY_DIR_IMAGE}/${MANUFACTURER}
 		rm -rf ${DEPLOY_DIR_IMAGE}/${MANUFACTURER}/*
+		mkdir -p ${DEPLOY_DIR_IMAGE}/${MANUFACTURER}/overlay
 	fi
 
 	# Copy device tree file
 	if test -n "${KERNEL_DEVICETREE}"; then
 		for DTS_FILE in ${KERNEL_DEVICETREE}; do
 			DTS_BASE_NAME=`basename ${DTS_FILE} | awk -F "." '{print $1}'`
-			if [ -e ${DEPLOY_DIR_IMAGE}/"${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.dtb" ]; then
+			DTS_BASE_EXT=`basename ${DTS_FILE} | awk -F "." '{print $2}'`
+			if [ -e ${DEPLOY_DIR_IMAGE}/"${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.${DTS_BASE_EXT}" ]; then
 				kernel_bin="`readlink ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${MACHINE}.bin`"
-				kernel_bin_for_dtb="`readlink ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.dtb | sed "s,$DTS_BASE_NAME,${MACHINE},g;s,\.dtb$,.bin,g"`"
+				kernel_bin_for_dtb="`readlink ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.${DTS_BASE_EXT} | sed "s,$DTS_BASE_NAME,${MACHINE},g;s,\.${DTS_BASE_EXT}$,.bin,g"`"
 				if [ $kernel_bin = $kernel_bin_for_dtb ]; then
 					if [ ${SOC_FAMILY} = "sun50i" ]; then
-						cp ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.dtb ${DEPLOY_DIR_IMAGE}/${MANUFACTURER}/${DTS_BASE_NAME}.dtb
+						if [ ${DTS_BASE_EXT} = "dtbo" ]; then
+							cp ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.${DTS_BASE_EXT} ${DEPLOY_DIR_IMAGE}/${MANUFACTURER}/overlay/${DTS_BASE_NAME}.${DTS_BASE_EXT}
+						else
+							cp ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.${DTS_BASE_EXT} ${DEPLOY_DIR_IMAGE}/${MANUFACTURER}/${DTS_BASE_NAME}.${DTS_BASE_EXT}
+						fi
 					else
-						mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.dtb ::/${DTS_BASE_NAME}.dtb
+						mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/${KERNEL_IMAGETYPE}-${DTS_BASE_NAME}.${DTS_BASE_EXT} ::/${DTS_BASE_NAME}.${DTS_BASE_EXT}
 					fi
 				fi
 			fi
@@ -102,6 +108,10 @@ IMAGE_CMD_sunxi-sdimg () {
 		mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/boot.scr ::boot.scr
 	fi
 
+	if [ -e "${DEPLOY_DIR_IMAGE}/Env.txt" ]
+	then
+		mcopy -i ${WORKDIR}/boot.img -s ${DEPLOY_DIR_IMAGE}/Env.txt ::Env.txt
+	fi
 
 	# Add stamp file
 	echo "${IMAGE_NAME}" > ${WORKDIR}/image-version-info
